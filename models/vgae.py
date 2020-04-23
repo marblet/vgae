@@ -13,8 +13,8 @@ class VGAE(nn.Module):
     def reset_parameters(self):
         self.encoder.reset_parameters()
 
-    def loss_function(self, data, z, mu, logvar):
-        recon_loss = F.binary_cross_entropy_with_logits(z, data.adjmat)
+    def loss_function(self, data, z, mu, logvar, norm, pos_weight, pretrain=False):
+        recon_loss = norm * F.binary_cross_entropy(z, data.adjmat, weight=pos_weight)
         kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
             1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
         return recon_loss + kl

@@ -11,32 +11,40 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 mse = nn.MSELoss()
 
 
-def train(model, optimizer, data, pretrain=False):
+def train(model, optimizer, data, norm, pos_weight, pretrain=False):
     model.train()
     optimizer.zero_grad()
     z, mu, logvar = model(data)
-    loss = model.loss_function(data, z, mu, logvar, pretrain)
+    loss = model.loss_function(data, z, mu, logvar, norm, pos_weight, pretrain)
     loss.backward()
     optimizer.step()
+    return loss
 
 
-def evaluate(model, data):
+def evaluate(model, data, norm, pos_weight):
     model.eval()
 
     with torch.no_grad():
         z, mu, logvar = model(data)
 
-    loss = model.loss_function(data, z, mu, logvar)
+    loss = model.loss_function(data, z, mu, logvar, norm, pos_weight)
     error = mse(z, data.adjmat)
     pred = model.classify(data)
-    nmi = NMI(data.labels, pred, average_method='arithmetic')
+    nmi = NMI(data.labels.cpu(), pred, average_method='arithmetic')
 
     return loss, error, nmi
 
 
-def run(data, model, lr, weight_decay, epochs=200, pretrain=100, niter=1, verbose=False):
+def run(data, model, lr, weight_decay, epochs=200, pretrain=20, niter=1, verbose=False):
     # for GPU
     data.to(device)
+
+    N = data.num_nodes
+    E = data.edge_list.size(1)
+    pw = torch.tensor((N * N) / E - 1)
+    ones = torch.ones_like(data.adjmat)
+    pos_weight = torch.where(data.adjmat > 0, pw * ones, ones)
+    norm = (N * N) / ((N * N - E) * 2)
 
     for _ in tqdm(range(niter)):
         model.to(device).reset_parameters()
@@ -44,18 +52,22 @@ def run(data, model, lr, weight_decay, epochs=200, pretrain=100, niter=1, verbos
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
+        print("Pretrain")
         for epoch in range(1, pretrain + 1):
-            train(model, optimizer, data, True)
+            l = train(model, optimizer, data, norm, pos_weight, True)
+            print(l)
 
+        print("Initialize GMM parameters")
         model.initialize_gmm(data)
 
+        print("Train model")
         for epoch in range(1, epochs + 1):
-            train(model, optimizer, data)
-            evals = evaluate(model, data)
+            train(model, optimizer, data, norm, pos_weight)
+            evals = evaluate(model, data, norm, pos_weight)
             print(epoch, evals)
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         z, mu, logvar = model(data)
 
-    return mu
+    return z

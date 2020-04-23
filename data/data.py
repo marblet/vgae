@@ -57,8 +57,6 @@ def load_planetoid_data(dataset_str):
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
     test_idx = parse_index_file("data/planetoid/ind.{}.test.index".format(dataset_str))
-    train_idx = torch.arange(y.size(0), dtype=torch.long)
-    val_idx = torch.arange(y.size(0), y.size(0) + 500, dtype=torch.long)
     sorted_test_idx = np.sort(test_idx)
 
     if dataset_str == 'citeseer':

@@ -21,7 +21,7 @@ class VGAECD(nn.Module):
 
     def reset_parameters(self):
         self.encoder.reset_parameters()
-        self.pi.data = torch.ones_like(self.pi) / self.K
+        self.pi.data = torch.zeros_like(self.pi)
         self.mu.data = torch.zeros_like(self.mu)
         self.logvar.data = torch.zeros_like(self.logvar)
 
@@ -29,15 +29,15 @@ class VGAECD(nn.Module):
         with torch.no_grad():
             mu, logvar = self.encoder(data)
             z = self.reparameterize(mu, logvar)
-        z = z.detach().numpy()
+        z = z.cpu().detach().numpy()
         gmm = GaussianMixture(n_components=self.K, covariance_type='diag')
         gmm.fit(z)
         self.pi.data = torch.FloatTensor(gmm.weights_).to(device)
         self.mu.data = torch.FloatTensor(gmm.means_).to(device)
         self.logvar.data = torch.log(torch.FloatTensor(gmm.covariances_)).to(device)
 
-    def loss_function(self, data, adj_recon, mu, logvar, pretrain=False):
-        recon_loss = F.binary_cross_entropy(adj_recon, data.adjmat)
+    def loss_function(self, data, adj_recon, mu, logvar, norm, pos_weight, pretrain=False):
+        recon_loss = norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=pos_weight)
         if pretrain:
             kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
                 1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
@@ -53,7 +53,7 @@ class VGAECD(nn.Module):
         p_z_c = p_z_given_c * weights
         gamma = p_z_c / torch.sum(p_z_c, dim=1, keepdim=True)
 
-        h = logvar.exp().unsqueeze(1) + (mu.unsqueeze(1) - self.mu).pow(2)
+        h = logvar.exp().pow(2).unsqueeze(1) + (mu.unsqueeze(1) - self.mu).pow(2)
         h = torch.sum(self.logvar + h / torch.exp(self.logvar), dim=2)
         com_loss = 0.5 * torch.sum(gamma * h) \
             - torch.sum(gamma * torch.log(weights + 1e-9)) \
