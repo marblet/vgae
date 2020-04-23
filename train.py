@@ -35,7 +35,7 @@ def evaluate(model, data, norm, pos_weight):
     return loss, error, nmi
 
 
-def run(data, model, lr, weight_decay, epochs=200, pretrain=20, niter=1, verbose=False):
+def run(data, model, lr, weight_decay, epochs=200, pretrain=100, niter=1, verbose=False):
     # for GPU
     data.to(device)
 

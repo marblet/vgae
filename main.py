@@ -5,8 +5,14 @@ from models import create_vgaecd_model
 from data import load_data
 from train import run
 import torch
-
+import random
+import numpy as np
+SEED = 31
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 torch.autograd.set_detect_anomaly(True)
+
 data = load_data('cora')
 model = create_vgaecd_model(data, latent_dim=8)
 z = run(data, model, 0.001, 0, epochs=200)
