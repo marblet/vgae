@@ -35,7 +35,7 @@ def evaluate(model, data, norm, pos_weight):
     return loss, error, nmi
 
 
-def run(data, model, lr, weight_decay, epochs=200, pretrain=100, niter=1, verbose=False):
+def run(data, model, lr, epochs=200, pretrain=100, niter=1, verbose=False):
     # for GPU
     data.to(device)
 
@@ -48,7 +48,7 @@ def run(data, model, lr, weight_decay, epochs=200, pretrain=100, niter=1, verbos
 
     for _ in tqdm(range(niter)):
         model.to(device).reset_parameters()
-        optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+        optimizer = Adam(model.parameters(), lr=lr)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 

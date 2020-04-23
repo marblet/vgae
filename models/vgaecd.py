@@ -9,11 +9,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class VGAECD(nn.Module):
-    def __init__(self, data, nhid, latent_dim, dropout):
+    def __init__(self, data, nhid, latent_dim):
         super(VGAECD, self).__init__()
         self.K = data.num_classes
-        self.encoder = Encoder(data, nhid, latent_dim, dropout)
-        self.decoder = Decoder(dropout)
+        self.encoder = Encoder(data, nhid, latent_dim)
+        self.decoder = Decoder()
 
         self.pi = nn.Parameter(torch.FloatTensor(self.K))
         self.mu = nn.Parameter(torch.FloatTensor(self.K, latent_dim))
@@ -50,7 +50,7 @@ class VGAECD(nn.Module):
 
         h = h / torch.exp(torch.sum(0.5 * self.logvar, dim=1))
         p_z_given_c = h / (2 * math.pi)
-        p_z_c = p_z_given_c * weights + 10e-9
+        p_z_c = p_z_given_c * weights + 1e-9
         gamma = p_z_c / torch.sum(p_z_c, dim=1, keepdim=True)
 
         h = logvar.exp().pow(2).unsqueeze(1) + (mu.unsqueeze(1) - self.mu).pow(2)
@@ -95,6 +95,6 @@ class VGAECD(nn.Module):
         return z, mu, logvar
 
 
-def create_vgaecd_model(data, nhid=32, latent_dim=16, dropout=0.):
-    model = VGAECD(data, nhid, latent_dim, dropout)
+def create_vgaecd_model(data, nhid=32, latent_dim=16):
+    model = VGAECD(data, nhid, latent_dim)
     return model

@@ -5,10 +5,10 @@ from . import GCNConv
 
 
 class VGAE(nn.Module):
-    def __init__(self, data, nhid, latent_dim, dropout):
+    def __init__(self, data, nhid, latent_dim):
         super(VGAE, self).__init__()
-        self.encoder = Encoder(data, nhid, latent_dim, dropout)
-        self.decoder = Decoder(dropout)
+        self.encoder = Encoder(data, nhid, latent_dim)
+        self.decoder = Decoder()
 
     def reset_parameters(self):
         self.encoder.reset_parameters()
@@ -38,13 +38,12 @@ class VGAE(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, data, nhid, latent_dim, dropout):
+    def __init__(self, data, nhid, latent_dim):
         super(Encoder, self).__init__()
         nfeat = data.num_features
         self.gc1 = GCNConv(nfeat, nhid)
         self.gc_mu = GCNConv(nhid, latent_dim)
         self.gc_logvar = GCNConv(nhid, latent_dim)
-        self.dropout = dropout
 
     def reset_parameters(self):
         self.gc1.reset_parameters()
@@ -53,23 +52,20 @@ class Encoder(nn.Module):
 
     def forward(self, data):
         x, adj = data.features, data.adj
-        x = F.dropout(x, p=self.dropout, training=self.training)
         x = F.relu(self.gc1(x, adj))
         mu, logvar = self.gc_mu(x, adj), self.gc_logvar(x, adj)
         return mu, logvar
 
 
 class Decoder(nn.Module):
-    def __init__(self, dropout):
+    def __init__(self):
         super(Decoder, self).__init__()
-        self.dropout = dropout
 
     def forward(self, z):
-        z = F.dropout(z, p=self.dropout, training=self.training)
         adj = torch.sigmoid(torch.mm(z, z.t()))
         return adj
 
 
-def create_vgae_model(data, nhid=32, latent_dim=16, dropout=0.):
-    model = VGAE(data, nhid, latent_dim, dropout)
+def create_vgae_model(data, nhid=32, latent_dim=16):
+    model = VGAE(data, nhid, latent_dim)
     return model
