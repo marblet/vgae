@@ -50,7 +50,7 @@ class VGAECD(nn.Module):
 
         h = h / torch.exp(torch.sum(0.5 * self.logvar, dim=1))
         p_z_given_c = h / (2 * math.pi)
-        p_z_c = p_z_given_c * weights
+        p_z_c = p_z_given_c * weights + 10e-9
         gamma = p_z_c / torch.sum(p_z_c, dim=1, keepdim=True)
 
         h = logvar.exp().pow(2).unsqueeze(1) + (mu.unsqueeze(1) - self.mu).pow(2)
