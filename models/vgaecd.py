@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from sklearn.mixture import GaussianMixture
-from . import Encoder, Decoder
+from . import Encoder, Decoder, reparameterize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -19,6 +19,12 @@ class VGAECD(nn.Module):
         self.mu = nn.Parameter(torch.FloatTensor(self.K, latent_dim))
         self.logvar = nn.Parameter(torch.FloatTensor(self.K, latent_dim))
 
+        N = data.features.size(0)
+        E = data.adjmat.sum()
+        pos_weight = (N * N - E) / E
+        self.weight_mat = torch.where(data.adjmat > 0, pos_weight, torch.tensor(1.))
+        self.norm = (N * N) / ((N * N - E) * 2)
+
     def reset_parameters(self):
         self.encoder.reset_parameters()
         self.pi.data = torch.zeros_like(self.pi)
@@ -28,7 +34,7 @@ class VGAECD(nn.Module):
     def initialize_gmm(self, data):
         with torch.no_grad():
             mu, logvar = self.encoder(data)
-            z = self.reparameterize(mu, logvar)
+            z = reparameterize(mu, logvar, self.training)
         z = z.cpu().detach().numpy()
         gmm = GaussianMixture(n_components=self.K, covariance_type='diag')
         gmm.fit(z)
@@ -36,14 +42,18 @@ class VGAECD(nn.Module):
         self.mu.data = torch.FloatTensor(gmm.means_).to(device)
         self.logvar.data = torch.log(torch.FloatTensor(gmm.covariances_)).to(device)
 
-    def loss_function(self, data, adj_recon, mu, logvar, norm, pos_weight, pretrain=False):
-        recon_loss = norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=pos_weight)
-        if pretrain:
-            kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
-                1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
-            return recon_loss + kl
+    def loss_function_pretrain(self, data, output):
+        adj_recon, mu, logvar = output['adj_recon'], output['mu'], output['logvar']
+        recon_loss = self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
+        kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
+            1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
+        return recon_loss + kl
 
-        z = self.reparameterize(mu, logvar).unsqueeze(1)
+    def loss_function(self, data, output):
+        adj_recon, mu, logvar = output['adj_recon'], output['mu'], output['logvar']
+        recon_loss = self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
+
+        z = reparameterize(mu, logvar, self.training).unsqueeze(1)
         h = z - self.mu
         h = torch.exp(-0.5 * torch.sum((h * h) / torch.exp(self.logvar), dim=2))
         weights = torch.softmax(self.pi, dim=0)
@@ -62,20 +72,12 @@ class VGAECD(nn.Module):
         com_loss = com_loss / (data.num_nodes * data.num_nodes)
         return recon_loss + com_loss
 
-    def reparameterize(self, mu, logvar):
-        if self.training:
-            std = torch.exp(logvar)
-            eps = torch.randn_like(std)
-            return mu + std * eps
-        else:
-            return mu
-
     def classify(self, data, n_samples=8):
         with torch.no_grad():
             mu, logvar = self.encoder(data)
             weights = torch.softmax(self.pi, dim=0)
             z = torch.stack(
-                [self.reparameterize(mu, logvar) for _ in range(n_samples)], dim=1)
+                [reparameterize(mu, logvar, self.training) for _ in range(n_samples)], dim=1)
             z = z.unsqueeze(2)
             h = z - self.mu
             h = torch.exp(-0.5 * torch.sum(h * h / torch.exp(self.logvar), dim=3))
@@ -90,6 +92,6 @@ class VGAECD(nn.Module):
 
     def forward(self, data):
         mu, logvar = self.encoder(data)
-        z = self.reparameterize(mu, logvar)
-        z = self.decoder(z)
-        return {'z': z, 'mu': mu, 'logvar': logvar}
+        z = reparameterize(mu, logvar, self.training)
+        adj_recon = self.decoder(z)
+        return {'adj_recon': adj_recon, 'z': z, 'mu': mu, 'logvar': logvar}

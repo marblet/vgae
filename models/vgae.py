@@ -4,37 +4,42 @@ import torch.nn.functional as F
 from . import GCNConv
 
 
+def reparameterize(mu, logvar, training):
+    if training:
+        std = torch.exp(logvar)
+        eps = torch.randn_like(std)
+        return mu + std * eps
+    else:
+        return mu
+
+
 class VGAE(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16):
         super(VGAE, self).__init__()
         self.encoder = Encoder(data, nhid, latent_dim)
         self.decoder = Decoder()
 
+        N = data.features.size(0)
+        E = data.edge_list.size(1)
+        pos_weight = torch.tensor((N * N) / E - 1)
+        self.weight_mat = torch.where(data.adjmat > 0, pos_weight, torch.tensor(1.))
+        self.norm = (N * N) / ((N * N - E) * 2)
+
     def reset_parameters(self):
         self.encoder.reset_parameters()
 
-    def loss_function(self, data, z, mu, logvar, norm, pos_weight, pretrain=False):
-        recon_loss = norm * F.binary_cross_entropy(z, data.adjmat, weight=pos_weight)
+    def loss_function(self, data, output):
+        adj_recon, mu, logvar = output['adj_recon'], output['mu'], output['logvar']
+        recon_loss = self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
         kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
             1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
         return recon_loss + kl
 
-    def classify(self, data):
-        return [0] * data.num_nodes
-
-    def reparameterize(self, mu, logvar):
-        if self.training:
-            std = torch.exp(logvar)
-            eps = torch.randn_like(std)
-            return mu + std * eps
-        else:
-            return mu
-
     def forward(self, data):
         mu, logvar = self.encoder(data)
-        z = self.reparameterize(mu, logvar)
-        z = self.decoder(z)
-        return {'z': z, 'mu': mu, 'logvar': logvar}
+        z = reparameterize(mu, logvar, self.training)
+        adj_recon = self.decoder(z)
+        return {'adj_recon': adj_recon, 'z': z, 'mu': mu, 'logvar': logvar}
 
 
 class Encoder(nn.Module):
