@@ -5,7 +5,7 @@ from . import GCNConv
 
 
 class VGAE(nn.Module):
-    def __init__(self, data, nhid, latent_dim):
+    def __init__(self, data, nhid=32, latent_dim=16):
         super(VGAE, self).__init__()
         self.encoder = Encoder(data, nhid, latent_dim)
         self.decoder = Decoder()
@@ -34,7 +34,7 @@ class VGAE(nn.Module):
         mu, logvar = self.encoder(data)
         z = self.reparameterize(mu, logvar)
         z = self.decoder(z)
-        return z, mu, logvar
+        return {'z': z, 'mu': mu, 'logvar': logvar}
 
 
 class Encoder(nn.Module):
@@ -64,8 +64,3 @@ class Decoder(nn.Module):
     def forward(self, z):
         adj = torch.sigmoid(torch.mm(z, z.t()))
         return adj
-
-
-def create_vgae_model(data, nhid=32, latent_dim=16):
-    model = VGAE(data, nhid, latent_dim)
-    return model
