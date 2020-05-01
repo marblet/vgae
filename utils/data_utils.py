@@ -5,8 +5,6 @@ import scipy.sparse as sp
 import sys
 import torch
 
-from utils import add_self_loops, normalize_adj, preprocess_features
-
 
 class Data(object):
     def __init__(self, adj, edge_list, features, labels, adjmat):
@@ -212,3 +210,34 @@ def split_data(labels, n_train_per_class, n_val, seed):
     val_mask = index_to_mask(val_idx, labels.size(0))
     test_mask = index_to_mask(test_idx, labels.size(0))
     return train_mask, val_mask, test_mask
+
+
+def add_self_loops(edge_list, size):
+    i = torch.arange(size, dtype=torch.int64).view(1, -1)
+    self_loops = torch.cat((i, i), dim=0)
+    edge_list = torch.cat((edge_list, self_loops), dim=1)
+    return edge_list
+
+
+def get_degree(edge_list):
+    row, col = edge_list
+    deg = torch.bincount(row)
+    return deg
+
+
+def normalize_adj(edge_list):
+    deg = get_degree(edge_list)
+    row, col = edge_list
+    deg_inv_sqrt = torch.pow(deg.to(torch.float), -0.5)
+    deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0.0
+    weight = torch.ones(edge_list.size(1))
+    v = deg_inv_sqrt[row] * weight * deg_inv_sqrt[col]
+    norm_adj = torch.sparse.FloatTensor(edge_list, v)
+    return norm_adj
+
+
+def preprocess_features(features):
+    rowsum = features.sum(dim=1, keepdim=True)
+    rowsum[rowsum == 0] = 1
+    features = features / rowsum
+    return features
