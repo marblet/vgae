@@ -1,15 +1,14 @@
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from models import create_vgae_model
-from models import create_vgaecd_model
-from data import load_data
-from train import run
-torch.autograd.set_detect_anomaly(True)
+from models import *
+from utils import Data
+from train import EmbeddingTrainer, ClusteringTrainer
 
-data = load_data('cora')
-model = create_vgaecd_model(data, latent_dim=8)
-z = run(data, model, 0.01, epochs=200)
-embed = z.detach().numpy()
+data = Data('cora')
+model = VGAE(data)
+trainer = EmbeddingTrainer(model, data, 0.01, 200)
+output = trainer.run()
+embed = output['z'].detach().numpy()
 color = data.labels.detach().numpy()
 X_reduced = TSNE(n_components=2, random_state=0).fit_transform(embed)
 plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=color)

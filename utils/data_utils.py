@@ -7,7 +7,17 @@ import torch
 
 
 class Data(object):
-    def __init__(self, adj, edge_list, features, labels, adjmat):
+    def __init__(self, dataset_str):
+        if dataset_str in ['cora', 'citeseer', 'pubmed']:
+            data = load_planetoid_data(dataset_str)
+        elif dataset_str in ['karate']:
+            data = load_karate_data()
+        elif dataset_str in ['chameleon', 'cornell', 'film', 'squirrel', 'texas', 'wisconsin']:
+            data = load_geom_data(dataset_str)
+        else:
+            data = load_npz_data(dataset_str)
+        adj, edge_list, features, labels, adjmat = data
+
         self.adj = adj
         self.edge_list = edge_list
         self.features = features
@@ -23,18 +33,6 @@ class Data(object):
         self.features = self.features.to(device)
         self.labels = self.labels.to(device)
         self.adjmat = self.adjmat.to(device)
-
-
-def load_data(dataset_str, ntrain=20, seed=None):
-    if dataset_str in ['cora', 'citeseer', 'pubmed']:
-        data = load_planetoid_data(dataset_str)
-    elif dataset_str in ['karate']:
-        data = load_karate_data()
-    elif dataset_str in ['chameleon', 'cornell', 'film', 'squirrel', 'texas', 'wisconsin']:
-        data = load_geom_data(dataset_str, ntrain, seed)
-    else:
-        data = load_npz_data(dataset_str, ntrain, seed)
-    return data
 
 
 def load_planetoid_data(dataset_str):
@@ -80,9 +78,7 @@ def load_planetoid_data(dataset_str):
     adj = normalize_adj(edge_list)
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(features.size(0)))
 
-    data = Data(adj, edge_list, features, labels, adjmat)
-
-    return data
+    return adj, edge_list, features, labels, adjmat
 
 
 def load_karate_data():
@@ -97,12 +93,10 @@ def load_karate_data():
     adj = normalize_adj(edge_list)
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(N))
 
-    data = Data(adj, edge_list, features, labels, adjmat)
-
-    return data
+    return adj, edge_list, features, labels, adjmat
 
 
-def load_npz_data(dataset_str, ntrain, seed):
+def load_npz_data(dataset_str):
     with np.load('data/npz/' + dataset_str + '.npz', allow_pickle=True) as loader:
         loader = dict(loader)
     adj_mat = sp.csr_matrix((loader['adj_data'], loader['adj_indices'], loader['adj_indptr']),
@@ -137,11 +131,10 @@ def load_npz_data(dataset_str, ntrain, seed):
         labels = None
     labels = torch.tensor(labels).long()
 
-    data = Data(adj, edge_list, features, labels, None)
-    return data
+    return adj, edge_list, features, labels, None
 
 
-def load_geom_data(dataset_str, ntrain, seed):
+def load_geom_data(dataset_str):
     # Feature and Label preprocessing
     with open('data/geom_data/{}/out1_node_feature_label.txt'.format(dataset_str)) as f:
         feature_labels = f.readlines()
@@ -168,9 +161,9 @@ def load_geom_data(dataset_str, ntrain, seed):
     edge_list = torch.from_numpy(np.vstack((coo_adj.row, coo_adj.col)).astype(np.int64))
     edge_list = add_self_loops(edge_list, features.size(0))
     adj = normalize_adj(edge_list)
+    adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(features.size(0)))
 
-    data = Data(adj, edge_list, features, labels, None)
-    return data
+    return adj, edge_list, features, labels, adjmat
 
 
 def adj_list_from_dict(graph):
