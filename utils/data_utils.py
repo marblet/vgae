@@ -16,13 +16,14 @@ class Data(object):
             data = load_geom_data(dataset_str)
         else:
             data = load_npz_data(dataset_str)
-        adj, edge_list, features, labels, adjmat = data
+        adj, edge_list, features, labels, adjmat, G = data
 
         self.adj = adj
         self.edge_list = edge_list
         self.features = features
         self.labels = labels
         self.adjmat = adjmat
+        self.G = G
         self.num_nodes = features.size(0)
         self.num_features = features.size(1)
         self.num_classes = int(torch.max(labels)) + 1
@@ -51,6 +52,33 @@ class NodeClsData(Data):
         self.train_mask = self.train_mask.to(device)
         self.val_mask = self.val_mask.to(device)
         self.test_mask = self.test_mask.to(device)
+
+
+class LinkPredData(Data):
+    def __init__(self, dataset_str, seed=None):
+        super(LinkPredData, self).__init__(dataset_str)
+        train_edges, val_edges, test_edges = split_edges(self.G)
+        negative_edges = torch.stack(torch.where(self.adjmat == 0))
+
+        # Update edge_list and adj to train edge_list, adj, and adjmat
+        edge_list = torch.cat([train_edges, torch.stack([train_edges[1], train_edges[0]])], dim=1)
+        self.edge_list = add_self_loops(edge_list, self.num_nodes)
+        self.adj = normalize_adj(self.edge_list)
+        self.adjmat = torch.where(self.adj.to_dense() > 0, torch.tensor(1.), torch.tensor(0.))
+
+        neg_idx = np.random.choice(negative_edges.size(1), val_edges.size(1) + test_edges.size(1))
+
+        self.val_edges = val_edges
+        self.neg_val_edges = negative_edges[:, neg_idx[:val_edges.size(1)]]
+        self.test_edges = test_edges
+        self.neg_test_edges = negative_edges[:, neg_idx[val_edges.size(1):]]
+
+    def to(self, device):
+        super().to(device)
+        self.val_edges = self.val_edges.to(device)
+        self.neg_val_edges = self.neg_val_edges.to(device)
+        self.test_edges = self.test_edges.to(device)
+        self.neg_test_edges = self.neg_test_edges.to(device)
 
 
 def load_planetoid_data(dataset_str):
@@ -96,7 +124,7 @@ def load_planetoid_data(dataset_str):
     adj = normalize_adj(edge_list)
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(features.size(0)))
 
-    return adj, edge_list, features, labels, adjmat
+    return adj, edge_list, features, labels, adjmat, G
 
 
 def load_karate_data():
@@ -111,7 +139,7 @@ def load_karate_data():
     adj = normalize_adj(edge_list)
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(N))
 
-    return adj, edge_list, features, labels, adjmat
+    return adj, edge_list, features, labels, adjmat, G
 
 
 def load_npz_data(dataset_str):
@@ -149,7 +177,7 @@ def load_npz_data(dataset_str):
         labels = None
     labels = torch.tensor(labels).long()
 
-    return adj, edge_list, features, labels, None
+    return adj, edge_list, features, labels, None, None
 
 
 def load_geom_data(dataset_str):
@@ -181,27 +209,7 @@ def load_geom_data(dataset_str):
     adj = normalize_adj(edge_list)
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(features.size(0)))
 
-    return adj, edge_list, features, labels, adjmat
-
-
-def adj_list_from_dict(graph):
-    G = nx.from_dict_of_lists(graph)
-    coo_adj = nx.to_scipy_sparse_matrix(G).tocoo()
-    indices = torch.from_numpy(np.vstack((coo_adj.row, coo_adj.col)).astype(np.int64))
-    return indices
-
-
-def index_to_mask(index, size):
-    mask = torch.zeros((size, ), dtype=torch.bool)
-    mask[index] = 1
-    return mask
-
-
-def parse_index_file(filename):
-    index = []
-    for line in open(filename):
-        index.append(int(line.strip()))
-    return index
+    return adj, edge_list, features, labels, adjmat, G
 
 
 def split_planetoid_data(dataset_str, labels):
@@ -234,6 +242,38 @@ def split_data(labels, n_train_per_class, n_val, seed):
     val_mask = index_to_mask(val_idx, labels.size(0))
     test_mask = index_to_mask(test_idx, labels.size(0))
     return train_mask, val_mask, test_mask
+
+
+def split_edges(G, val_ratio=0.1, test_ratio=0.05):
+    edges = np.array([[u, v] for u, v in G.edges()])
+    np.random.shuffle(edges)
+    E = edges.shape[0]
+    n_val_edges = int(E * val_ratio)
+    n_test_edges = int(E * test_ratio)
+    val_edges = torch.LongTensor(edges[:n_val_edges]).t()
+    test_edges = torch.LongTensor(edges[n_val_edges: n_val_edges + n_test_edges]).t()
+    train_edges = torch.LongTensor(edges[n_val_edges + n_test_edges:]).t()
+    return train_edges, val_edges, test_edges
+
+
+def adj_list_from_dict(graph):
+    G = nx.from_dict_of_lists(graph)
+    coo_adj = nx.to_scipy_sparse_matrix(G).tocoo()
+    indices = torch.from_numpy(np.vstack((coo_adj.row, coo_adj.col)).astype(np.int64))
+    return indices
+
+
+def index_to_mask(index, size):
+    mask = torch.zeros((size, ), dtype=torch.bool)
+    mask[index] = 1
+    return mask
+
+
+def parse_index_file(filename):
+    index = []
+    for line in open(filename):
+        index.append(int(line.strip()))
+    return index
 
 
 def add_self_loops(edge_list, size):
