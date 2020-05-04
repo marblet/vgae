@@ -4,11 +4,10 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from numpy import mean, std
 from sklearn.metrics import normalized_mutual_info_score as NMI
+from sklearn.metrics import roc_auc_score, average_precision_score
 from tqdm import tqdm
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-mse = nn.MSELoss()
 
 
 class Trainer(object):
@@ -65,12 +64,48 @@ class EmbeddingTrainer(Trainer):
             output = model(data)
 
         loss = model.loss_function(data, output)
-        if 'recon_edges' in output:
-            e = output['recon_edges']
-            error = self.mse(output['adj_recon'], data.adjmat[e])
+        if 'recon_feat' in output:
+            error = F.mse_loss(output['recon_feat'], data.features)
+        elif 'recon_edges' in output:
+            adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
+            error = F.mse_loss(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
         else:
-            error = self.mse(output['adj_recon'], data.adjmat)
+            error = F.mse_loss(output['adj_recon'], data.adjmat)
         return {'loss': loss, 'error': error}
+
+
+class LinkPredTrainer(EmbeddingTrainer):
+    def __init__(self, model, data, lr, epochs):
+        super(LinkPredTrainer, self).__init__(model, data, lr, epochs)
+
+    def evaluate(self):
+        model, data = self.model, self.data
+        model.eval()
+
+        with torch.no_grad():
+            output = model(data)
+
+        loss = model.loss_function(data, output)
+        val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
+        test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
+
+        return {'loss': loss, 'val_roc': val_roc, 'val_ac': val_ap, 'test_roc': test_roc, 'test_ap': test_ap}
+
+
+def linkpred_score(z, pos_edges, neg_edges):
+    pos_score = torch.sigmoid(torch.sum(z[pos_edges[0]] * z[pos_edges[1]], dim=1))
+    neg_score = torch.sigmoid(torch.sum(z[neg_edges[0]] * z[neg_edges[1]], dim=1))
+    true_score = [1] * pos_score.size(0) + [0] * neg_score.size(0)
+    pred_score = torch.cat([pos_score, neg_score]).numpy()
+    roc_score = roc_auc_score(true_score, pred_score)
+    ap_score = average_precision_score(true_score, pred_score)
+    return roc_score, ap_score
+
+
+
+class NodeClsTrainer(EmbeddingTrainer):
+    def __init__(self):
+        super(NodeClsTrainer, self).__init__()
 
 
 class ClusteringTrainer(Trainer):
