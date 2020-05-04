@@ -7,7 +7,7 @@ import torch
 
 
 class Data(object):
-    def __init__(self, dataset_str):
+    def __init__(self, dataset_str: str):
         if dataset_str in ['cora', 'citeseer', 'pubmed']:
             data = load_planetoid_data(dataset_str)
         elif dataset_str in ['karate']:
@@ -33,6 +33,24 @@ class Data(object):
         self.features = self.features.to(device)
         self.labels = self.labels.to(device)
         self.adjmat = self.adjmat.to(device)
+
+
+class NodeClsData(Data):
+    def __init__(self, dataset_str, ntrain=20, nval=500, seed=None):
+        super(NodeClsData, self).__init__(dataset_str)
+        if dataset_str in ['cora', 'citeseer', 'pubmed']:
+            train_mask, val_mask, test_mask = split_planetoid_data(dataset_str, self.labels)
+        else:
+            train_mask, val_mask, test_mask = split_data(self.labels, ntrain, nval, seed)
+        self.train_mask = train_mask
+        self.val_mask = val_mask
+        self.test_mask = test_mask
+
+    def to(self, device):
+        super().to(device)
+        self.train_mask = self.train_mask.to(device)
+        self.val_mask = self.val_mask.to(device)
+        self.test_mask = self.test_mask.to(device)
 
 
 def load_planetoid_data(dataset_str):
@@ -184,6 +202,19 @@ def parse_index_file(filename):
     for line in open(filename):
         index.append(int(line.strip()))
     return index
+
+
+def split_planetoid_data(dataset_str, labels):
+    with open("data/planetoid/ind.{}.y".format(dataset_str), 'rb') as f:
+        y = pkl.load(f, encoding='latin1')
+
+    test_idx = parse_index_file("data/planetoid/ind.{}.test.index".format(dataset_str))
+    train_idx = torch.arange(y.shape[0], dtype=torch.long)
+    val_idx = torch.arange(y.shape[0], y.shape[0] + 500, dtype=torch.long)
+    train_mask = index_to_mask(train_idx, labels.size(0))
+    val_mask = index_to_mask(val_idx, labels.size(0))
+    test_mask = index_to_mask(test_idx, labels.size(0))
+    return train_mask, val_mask, test_mask
 
 
 def split_data(labels, n_train_per_class, n_val, seed):
