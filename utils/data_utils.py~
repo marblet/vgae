@@ -55,9 +55,9 @@ class NodeClsData(Data):
 
 
 class LinkPredData(Data):
-    def __init__(self, dataset_str, val_ratio=0.05, test_ratio=0.1, seed=None):
+    def __init__(self, dataset_str, seed=None):
         super(LinkPredData, self).__init__(dataset_str)
-        train_edges, val_edges, test_edges = split_edges(self.G, val_ratio, test_ratio)
+        train_edges, val_edges, test_edges = split_edges(self.G)
         negative_edges = torch.stack(torch.where(self.adjmat == 0))
 
         # Update edge_list and adj to train edge_list, adj, and adjmat
@@ -244,7 +244,7 @@ def split_data(labels, n_train_per_class, n_val, seed):
     return train_mask, val_mask, test_mask
 
 
-def split_edges(G, val_ratio, test_ratio):
+def split_edges(G, val_ratio=0.1, test_ratio=0.05):
     edges = np.array([[u, v] for u, v in G.edges()])
     np.random.shuffle(edges)
     E = edges.shape[0]
