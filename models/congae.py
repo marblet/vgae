@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from . import Encoder, reparameterize
+from . import Encoder, reparameterize, GCNConv
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -14,11 +14,15 @@ class CONVAE(nn.Module):
 
     def reset_parameters(self):
         self.encoder.reset_parameters()
+        self.decoder.reset_parameters()
+
+    def recon_loss(self, data, output):
+        adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
+        return F.binary_cross_entropy(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
 
     def loss_function(self, data, output):
-        adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
+        recon_loss = self.recon_loss(data, output)
         mu, logvar = output['mu'], output['logvar']
-        recon_loss = F.binary_cross_entropy(adj_recon, data.adjmat[recon_edges[0], recon_edges[1]])
         kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
             1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
         return recon_loss + kl
@@ -39,7 +43,8 @@ class ConcatDecoder(nn.Module):
         self.negative_edges = torch.stack(torch.where(data.adjmat == 0))
 
     def reset_parameters(self):
-        self.fc.reset_parameters()
+        self.fc1.reset_parameters()
+        self.fc2.reset_parameters()
 
     def sample_negative_edges(self):
         idx = torch.randint(0, self.negative_edges.size(1), (self.E, ))
@@ -51,7 +56,7 @@ class ConcatDecoder(nn.Module):
         source, target = recon_edges
         concat_z = torch.cat([z[source], z[target]], dim=1)
         z = self.fc1(concat_z)
-        z = F.relu(z)
+        z = F.tanh(z)
         adj_recon = self.fc2(z)
         adj_recon = torch.sigmoid(adj_recon)
         return adj_recon, recon_edges
