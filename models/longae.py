@@ -13,12 +13,6 @@ class LoNGAE(nn.Module):
         self.b3 = nn.Parameter(torch.FloatTensor(nhid))
         self.b4 = nn.Parameter(torch.FloatTensor(data.num_nodes + data.num_features))
 
-        N = data.features.size(0)
-        E = data.adjmat.sum()
-        pos_weight = (N * N - E) / E
-        self.weight_mat = torch.where(data.adjmat > 0, pos_weight, torch.tensor(1.))
-        self.norm = (N * N) / ((N * N - E) * 2)
-
     def reset_parameters(self):
         nn.init.xavier_uniform_(self.W1, gain=1.414)
         nn.init.xavier_uniform_(self.W2, gain=1.414)
@@ -31,7 +25,7 @@ class LoNGAE(nn.Module):
         recon = output['recon_x']
         recon_a = recon[:, :data.num_nodes]
         recon_x = recon[:, data.num_nodes:]
-        recon_a_loss = self.norm * F.binary_cross_entropy(recon_a, data.adjmat, weight=self.weight_mat)
+        recon_a_loss = data.norm * F.binary_cross_entropy(recon_a, data.adjmat, weight=data.weight_mat)
         recon_x_loss = F.binary_cross_entropy(recon_x, data.features)
         return recon_a_loss + recon_x_loss
 

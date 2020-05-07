@@ -19,12 +19,6 @@ class VGAECD(nn.Module):
         self.mu = nn.Parameter(torch.FloatTensor(self.K, latent_dim))
         self.logvar = nn.Parameter(torch.FloatTensor(self.K, latent_dim))
 
-        N = data.features.size(0)
-        E = data.adjmat.sum()
-        pos_weight = (N * N - E) / E
-        self.weight_mat = torch.where(data.adjmat > 0, pos_weight, torch.tensor(1.))
-        self.norm = (N * N) / ((N * N - E) * 2)
-
     def reset_parameters(self):
         self.encoder.reset_parameters()
         self.pi.data = torch.zeros_like(self.pi)
@@ -44,7 +38,7 @@ class VGAECD(nn.Module):
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
+        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
 
     def loss_function_pretrain(self, data, output):
         recon_loss = self.recon_loss(data, output)

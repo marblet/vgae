@@ -17,7 +17,7 @@ class INVAE(nn.Module):
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
+        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
 
     def loss_function(self, data, output):
         recon_loss = self.recon_loss(data, output)

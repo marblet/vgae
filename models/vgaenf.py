@@ -15,8 +15,13 @@ class VGAENF(nn.Module):
         self.encoder.reset_parameters()
         self.nf.reset_parameters()
 
-    def loss_function(self, data, z, mu, logvar, norm, pos_weight, pretrain=False):
-        recon_loss = norm * F.binary_cross_entropy(z, data.adjmat, weight=pos_weight)
+    def recon_loss(self, data, output):
+        adj_recon = output['adj_recon']
+        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.pos_weight)
+
+    def loss_function(self, data, output):
+        recon_loss = self.recon_loss(data, output)
+        mu, logvar = output['mu'], output['logvar']
         kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
             1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
         return recon_loss + kl
@@ -36,8 +41,8 @@ class VGAENF(nn.Module):
         mu, logvar = self.encoder(data)
         z = self.reparameterize(mu, logvar)
         z, log_q = self.nf(z)
-        z = self.decoder(z)
-        return z, mu, logvar
+        adj_recon = self.decoder(z)
+        return {'adj_recon': adj_recon, 'z': z, 'mu': mu, 'logvar': logvar}
 
 
 class NormalizingFlow(nn.Module):
@@ -109,8 +114,3 @@ class PlanarFlowLogDetJacobian(nn.Module):
         psi = (1 - self.tanh(activation) ** 2) * self.weight
         det_grad = 1 + torch.mm(psi, self.scale.t())
         return torch.log(det_grad.abs() + 1e-9)
-
-
-def create_vgaenf_model(data, nhid=32, latent_dim=16, flow_length=10):
-    model = VGAENF(data, nhid, latent_dim, flow_length)
-    return model

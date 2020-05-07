@@ -19,18 +19,12 @@ class VGAE(nn.Module):
         self.encoder = Encoder(data, nhid, latent_dim)
         self.decoder = Decoder()
 
-        N = data.features.size(0)
-        E = data.edge_list.size(1)
-        pos_weight = torch.tensor((N * N) / E - 1)
-        self.weight_mat = torch.where(data.adjmat > 0, pos_weight, torch.tensor(1.))
-        self.norm = (N * N) / ((N * N - E) * 2)
-
     def reset_parameters(self):
         self.encoder.reset_parameters()
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return self.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=self.weight_mat)
+        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
 
     def loss_function(self, data, output):
         recon_loss = self.recon_loss(data, output)
