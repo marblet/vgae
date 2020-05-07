@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
+import numpy as np
 from numpy import mean, std
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import roc_auc_score, average_precision_score
@@ -80,8 +81,8 @@ class LinkPredTrainer(EmbeddingTrainer):
             output = model(data)
 
         loss = model.loss_function(data, output)
-        val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
-        test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
+        val_roc, val_ap = linkpred_score(output['mu'], data.val_edges, data.neg_val_edges)
+        test_roc, test_ap = linkpred_score(output['mu'], data.test_edges, data.neg_test_edges)
 
         return {'loss': float(loss), 'val_roc': val_roc, 'val_ac': val_ap, 'test_roc': test_roc, 'test_ap': test_ap}
 
@@ -89,8 +90,8 @@ class LinkPredTrainer(EmbeddingTrainer):
 def linkpred_score(z, pos_edges, neg_edges):
     pos_score = torch.sigmoid(torch.sum(z[pos_edges[0]] * z[pos_edges[1]], dim=1))
     neg_score = torch.sigmoid(torch.sum(z[neg_edges[0]] * z[neg_edges[1]], dim=1))
-    true_score = [1] * pos_score.size(0) + [0] * neg_score.size(0)
     pred_score = torch.cat([pos_score, neg_score]).cpu().numpy()
+    true_score = np.hstack([np.ones(pos_score.size(0)), np.zeros(neg_score.size(0))])
     roc_score = roc_auc_score(true_score, pred_score)
     ap_score = average_precision_score(true_score, pred_score)
     return roc_score, ap_score
