@@ -21,8 +21,6 @@ class Trainer(object):
         self.model.to(device).reset_parameters()
         self.data.to(device)
 
-        self.mse = nn.MSELoss()
-
     def train(self):
         model, optimizer, data = self.model, self.optimizer, self.data
         model.train()
@@ -92,7 +90,7 @@ def linkpred_score(z, pos_edges, neg_edges):
     pos_score = torch.sigmoid(torch.sum(z[pos_edges[0]] * z[pos_edges[1]], dim=1))
     neg_score = torch.sigmoid(torch.sum(z[neg_edges[0]] * z[neg_edges[1]], dim=1))
     true_score = [1] * pos_score.size(0) + [0] * neg_score.size(0)
-    pred_score = torch.cat([pos_score, neg_score]).numpy()
+    pred_score = torch.cat([pos_score, neg_score]).cpu().numpy()
     roc_score = roc_auc_score(true_score, pred_score)
     ap_score = average_precision_score(true_score, pred_score)
     return roc_score, ap_score
