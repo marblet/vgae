@@ -1,13 +1,14 @@
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from models import *
-from utils import Data
-from train import EmbeddingTrainer, ClusteringTrainer
+from utils import *
+from train import *
 
-data = Data('cora')
-model = VGAE(data)
-trainer = EmbeddingTrainer(model, data, 0.01, 200)
-output = trainer.run()
+for i in range(1):
+    data = LinkPredData('cora')
+    model = LoNGAE(data)
+    trainer = LinkPredTrainer(model, data, 0.01, 200)
+    output = trainer.run()
 embed = output['z'].detach().numpy()
 color = data.labels.detach().numpy()
 X_reduced = TSNE(n_components=2, random_state=0).fit_transform(embed)

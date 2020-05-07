@@ -11,11 +11,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Trainer(object):
-    def __init__(self, model, data, lr, epochs):
+    def __init__(self, model, data, lr, epochs, verbose=True):
         self.model = model
         self.optimizer = Adam(model.parameters(), lr=lr)
         self.data = data
         self.epochs = epochs
+        self.verbose = verbose
 
         self.model.to(device).reset_parameters()
         self.data.to(device)
@@ -39,10 +40,11 @@ class Trainer(object):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-        for epoch in range(1, self.epochs + 1):
-            self.train()
-            evals = self.evaluate()
-            print(epoch, evals)
+        with tqdm(range(1, self.epochs + 1)) as pbar:
+            for _ in pbar:
+                self.train()
+                evals = self.evaluate()
+                pbar.set_postfix(evals)
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -64,14 +66,8 @@ class EmbeddingTrainer(Trainer):
             output = model(data)
 
         loss = model.loss_function(data, output)
-        if 'recon_feat' in output:
-            error = F.mse_loss(output['recon_feat'], data.features)
-        elif 'recon_edges' in output:
-            adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
-            error = F.mse_loss(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
-        else:
-            error = F.mse_loss(output['adj_recon'], data.adjmat)
-        return {'loss': loss, 'error': error}
+        error = model.recon_loss(data, output)
+        return {'loss': float(loss), 'error': error}
 
 
 class LinkPredTrainer(EmbeddingTrainer):
@@ -89,7 +85,7 @@ class LinkPredTrainer(EmbeddingTrainer):
         val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
         test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
 
-        return {'loss': loss, 'val_roc': val_roc, 'val_ac': val_ap, 'test_roc': test_roc, 'test_ap': test_ap}
+        return {'loss': float(loss), 'val_roc': val_roc, 'val_ac': val_ap, 'test_roc': test_roc, 'test_ap': test_ap}
 
 
 def linkpred_score(z, pos_edges, neg_edges):
@@ -100,7 +96,6 @@ def linkpred_score(z, pos_edges, neg_edges):
     roc_score = roc_auc_score(true_score, pred_score)
     ap_score = average_precision_score(true_score, pred_score)
     return roc_score, ap_score
-
 
 
 class NodeClsTrainer(EmbeddingTrainer):
