@@ -28,12 +28,20 @@ class Data(object):
         self.num_features = features.size(1)
         self.num_classes = int(torch.max(labels)) + 1
 
+        # For Embedding Training
+        N = features.size(0)
+        E = edge_list.size(1)
+        pos_weight = torch.tensor((N * N) / E - 1)
+        self.weight_mat = torch.where(adjmat > 0, pos_weight, torch.tensor(1.))
+        self.norm = (N * N) / ((N * N - E) * 2)
+
     def to(self, device):
         self.adj = self.adj.to(device)
         self.edge_list = self.edge_list.to(device)
         self.features = self.features.to(device)
         self.labels = self.labels.to(device)
         self.adjmat = self.adjmat.to(device)
+        self.weight_mat = self.weight_mat.to(device)
 
 
 class NodeClsData(Data):
@@ -72,6 +80,13 @@ class LinkPredData(Data):
         self.neg_val_edges = negative_edges[:, neg_idx[:val_edges.size(1)]]
         self.test_edges = test_edges
         self.neg_test_edges = negative_edges[:, neg_idx[val_edges.size(1):]]
+
+        # For Link Prediction Training
+        N = self.features.size(0)
+        E = self.edge_list.size(1)
+        pos_weight = torch.tensor((N * N) / E - 1)
+        self.weight_mat = torch.where(self.adjmat > 0, pos_weight, torch.tensor(1.))
+        self.norm = (N * N) / ((N * N - E) * 2)
 
     def to(self, device):
         super().to(device)
