@@ -30,7 +30,7 @@ class VGAE(nn.Module):
         recon_loss = self.recon_loss(data, output)
         mu, logvar = output['mu'], output['logvar']
         kl = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
-            1 + 2 * logvar - mu.pow(2) - torch.exp(logvar).pow(2), 1))
+            1 + 2 * logvar - mu.pow(2) - logvar.exp().pow(2), 1))
         return recon_loss + kl
 
     def forward(self, data):
