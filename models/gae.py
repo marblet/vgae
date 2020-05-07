@@ -7,8 +7,8 @@ from . import GCNConv, Decoder
 class GAE(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16):
         super(GAE, self).__init__()
-        self.gc1 = GCNConv(data.num_features, nhid)
-        self.gc2 = GCNConv(nhid, latent_dim)
+        self.gc1 = GCNConv(data.num_features, nhid, bias=False)
+        self.gc2 = GCNConv(nhid, latent_dim, bias=False)
         self.decoder = Decoder()
 
     def reset_parameters(self):

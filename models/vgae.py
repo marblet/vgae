@@ -16,7 +16,7 @@ def reparameterize(mu, logvar, training):
 class VGAE(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16):
         super(VGAE, self).__init__()
-        self.encoder = Encoder(data, nhid, latent_dim)
+        self.encoder = Encoder(data, nhid, latent_dim, bias=False)
         self.decoder = Decoder()
 
     def reset_parameters(self):
@@ -41,12 +41,12 @@ class VGAE(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, data, nhid, latent_dim):
+    def __init__(self, data, nhid, latent_dim, bias=True):
         super(Encoder, self).__init__()
         nfeat = data.num_features
-        self.gc1 = GCNConv(nfeat, nhid)
-        self.gc_mu = GCNConv(nhid, latent_dim)
-        self.gc_logvar = GCNConv(nhid, latent_dim)
+        self.gc1 = GCNConv(nfeat, nhid, bias)
+        self.gc_mu = GCNConv(nhid, latent_dim, bias)
+        self.gc_logvar = GCNConv(nhid, latent_dim, bias)
 
     def reset_parameters(self):
         self.gc1.reset_parameters()
