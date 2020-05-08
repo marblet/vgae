@@ -12,9 +12,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Trainer(object):
-    def __init__(self, model, data, lr, epochs, verbose=True):
+    def __init__(self, model, data, lr, weight_decay, epochs, verbose=True):
         self.model = model
-        self.optimizer = Adam(model.parameters(), lr=lr)
+        self.optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         self.data = data
         self.epochs = epochs
         self.verbose = verbose
@@ -54,8 +54,8 @@ class Trainer(object):
 
 
 class EmbeddingTrainer(Trainer):
-    def __init__(self, model, data, lr, epochs):
-        super(EmbeddingTrainer, self).__init__(model, data, lr, epochs)
+    def __init__(self, model, data, lr, weigh_decay, epochs):
+        super(EmbeddingTrainer, self).__init__(model, data, lr, weigh_decay, epochs)
 
     def evaluate(self):
         model, data = self.model, self.data
@@ -70,8 +70,8 @@ class EmbeddingTrainer(Trainer):
 
 
 class LinkPredTrainer(EmbeddingTrainer):
-    def __init__(self, model, data, lr, epochs):
-        super(LinkPredTrainer, self).__init__(model, data, lr, epochs)
+    def __init__(self, model, data, lr, weight_decay, epochs):
+        super(LinkPredTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
     def evaluate(self):
         model, data = self.model, self.data
@@ -81,8 +81,8 @@ class LinkPredTrainer(EmbeddingTrainer):
             output = model(data)
 
         loss = model.loss_function(data, output)
-        val_roc, val_ap = linkpred_score(output['mu'], data.val_edges, data.neg_val_edges)
-        test_roc, test_ap = linkpred_score(output['mu'], data.test_edges, data.neg_test_edges)
+        val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
+        test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
 
         return {'loss': float(loss), 'val_roc': val_roc, 'val_ac': val_ap, 'test_roc': test_roc, 'test_ap': test_ap}
 
@@ -103,8 +103,8 @@ class NodeClsTrainer(EmbeddingTrainer):
 
 
 class ClusteringTrainer(Trainer):
-    def __init__(self, model, data, lr, epochs, pretrain_epochs=100):
-        super(ClusteringTrainer, self).__init__(model, data, lr, epochs)
+    def __init__(self, model, data, lr, weight_decay, epochs, pretrain_epochs=100):
+        super(ClusteringTrainer, self).__init__(model, data, lr, weight_decay, epochs)
         self.pretrain_epochs = pretrain_epochs
 
     def pretrain(self):
