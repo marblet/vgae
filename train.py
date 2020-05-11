@@ -31,7 +31,6 @@ class Trainer(object):
         loss = model.loss_function(data, output)
         loss.backward()
         optimizer.step()
-        return loss
 
     def evaluate(self):
         raise NotImplementedError()
@@ -116,6 +115,44 @@ class NodeClsTrainer(EmbeddingTrainer):
         embed = output['z'].cpu().detach().numpy()
         self.test(embed)
         return output
+
+
+class SemiNodeClsTrainer(EmbeddingTrainer):
+    def __init__(self, model, data, lr, weight_decay, epochs):
+        super(SemiNodeClsTrainer, self).__init__(model, data, lr, weight_decay, epochs)
+
+    def train(self):
+        model, optimizer, data = self.model, self.optimizer, self.data
+        model.train()
+        optimizer.zero_grad()
+        output = model(data)
+        model_loss = model.loss_function(data, output)
+        pred_loss = F.nll_loss(output['pred'][data.train_mask], data.labels[data.train_mask])
+        loss = model_loss + pred_loss
+        loss.backward()
+        optimizer.step()
+
+    def evaluate(self):
+        model, data = self.model, self.data
+        model.eval()
+
+        with torch.no_grad():
+            output = model(data)
+
+        evals = {}
+        for key in ['train', 'val', 'test']:
+            if key == 'train':
+                mask = data.train_mask
+            elif key == 'val':
+                mask = data.val_mask
+            else:
+                mask = data.test_mask
+            pred = output['pred'][mask].max(dim=1)[1]
+            acc = pred.eq(data.labels[mask]).sum().item() / mask.sum().item()
+
+            evals['{}_acc'.format(key)] = acc
+
+        return evals
 
 
 class ClusteringTrainer(Trainer):

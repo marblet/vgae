@@ -10,7 +10,9 @@ class SEPA(nn.Module):
         self.gcenc = GCEncoder(data.num_features, nhid, latent_dim, dropout)
         self.mlpenc = MLP(data.num_features, nhid, latent_dim, dropout)
         self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout)
+        self.predlabel = nn.Linear(latent_dim * 2, data.num_classes)
         self.decoder = Decoder()
+        self.dropout = dropout
 
     def reset_parameters(self):
         self.gcenc.reset_parameters()
@@ -31,9 +33,11 @@ class SEPA(nn.Module):
         za = self.gcenc(data)
         zx = self.mlpenc(data.features)
         z = torch.cat([za, zx], dim=1)
+        z = F.dropout(z, p=self.dropout, training=self.training)
+        pred = F.softmax(self.predlabel(z), dim=1)
         adj_recon = self.decoder(z)
         feat_recon = torch.sigmoid(self.mlpdec(zx))
-        return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'z': z}
+        return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z}
 
 
 class GCEncoder(nn.Module):
