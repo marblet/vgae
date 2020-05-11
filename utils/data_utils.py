@@ -12,6 +12,8 @@ class Data(object):
             data = load_planetoid_data(dataset_str)
         elif dataset_str in ['karate']:
             data = load_karate_data()
+        elif dataset_str in ['arxiv', 'youtube', 'blog', 'flickr']:
+            data = load_sdne_data(dataset_str)
         elif dataset_str in ['chameleon', 'cornell', 'film', 'squirrel', 'texas', 'wisconsin']:
             data = load_geom_data(dataset_str)
         else:
@@ -155,6 +157,27 @@ def load_karate_data():
     adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(N))
 
     return adj, edge_list, features, labels, adjmat, G
+
+
+def load_sdne_data(dataset_str):
+    rename = {'blog': 'blogCatalog3', 'arxiv': 'ca-Grqc'}
+    dataset_str = rename[dataset_str] if dataset_str in rename else dataset_str
+    with open('data/sdne/{}.txt'.format(dataset_str)) as f:
+        lines = f.readlines()[1:]
+    edges = [(int(l.split()[0]), int(l.split()[1])) for l in lines]
+    G = nx.Graph()
+    G.add_edges_from(edges)
+    N = G.number_of_nodes()
+    features = torch.eye(N)
+    labels = torch.zeros(N)
+    coo_adj = nx.to_scipy_sparse_matrix(G).tocoo()
+    edge_list = torch.from_numpy(np.vstack((coo_adj.row, coo_adj.col)).astype(np.int64))
+    edge_list = add_self_loops(edge_list, G.number_of_nodes())
+    adj = normalize_adj(edge_list)
+    adjmat = torch.FloatTensor(nx.to_numpy_matrix(G) + np.eye(N))
+
+    return adj, edge_list, features, labels, adjmat, G
+
 
 
 def load_npz_data(dataset_str):
