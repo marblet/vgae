@@ -67,7 +67,7 @@ class EmbeddingTrainer(Trainer):
 
         loss = model.loss_function(data, output)
         error = model.recon_loss(data, output)
-        return {'loss': float(loss), 'error': error}
+        return {'loss': float(loss), 'error': float(error)}
 
 
 class LinkPredTrainer(EmbeddingTrainer):
