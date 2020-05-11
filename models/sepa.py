@@ -5,11 +5,11 @@ from . import GCNConv, Decoder
 
 
 class SEPA(nn.Module):
-    def __init__(self, data, nhid=32, latent_dim=16):
+    def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
         super(SEPA, self).__init__()
-        self.gcenc = GCEncoder(data.num_features, nhid, latent_dim, dropout=0.)
-        self.mlpenc = MLP(data.num_features, nhid, latent_dim)
-        self.mlpdec = MLP(latent_dim, nhid, data.num_features)
+        self.gcenc = GCEncoder(data.num_features, nhid, latent_dim, dropout)
+        self.mlpenc = MLP(data.num_features, nhid, latent_dim, dropout)
+        self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout)
         self.decoder = Decoder()
 
     def reset_parameters(self):
@@ -37,7 +37,7 @@ class SEPA(nn.Module):
 
 
 class GCEncoder(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout=0.):
+    def __init__(self, input_dim, nhid, latent_dim, dropout):
         super(GCEncoder, self).__init__()
         self.gc1 = GCNConv(input_dim, nhid)
         self.gc2 = GCNConv(nhid, latent_dim)
@@ -57,7 +57,7 @@ class GCEncoder(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout=0.):
+    def __init__(self, input_dim, nhid, latent_dim, dropout):
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, nhid)
         self.fc2 = nn.Linear(nhid, latent_dim)
