@@ -6,8 +6,8 @@ from train import *
 
 for i in range(1):
     data = LinkPredData('cora')
-    model = LoNGAE(data)
-    trainer = LinkPredTrainer(model, data, 0.01, 200)
+    model = SDNE(data)
+    trainer = LinkPredTrainer(model, data, 0.01, 5e-4, 200)
     output = trainer.run()
 embed = output['z'].detach().numpy()
 color = data.labels.detach().numpy()
