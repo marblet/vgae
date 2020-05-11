@@ -4,12 +4,14 @@ import torch.nn.functional as F
 from torch.optim import Adam
 import numpy as np
 from numpy import mean, std
+from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_mutual_info_score as AMI
 from sklearn.metrics import adjusted_rand_score as ARI
 from sklearn.metrics import roc_auc_score, average_precision_score
 from sklearn.cluster import KMeans
 from tqdm import tqdm
+from collections import Counter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -103,19 +105,37 @@ class NodeClsTrainer(EmbeddingTrainer):
     def __init__(self, model, data, lr, weight_decay, epochs):
         super(NodeClsTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
+    def accuracy(self, pred):
+        true_labels = self.data.labels.cpu()
+        conf_mat = []
+        for i in range(self.data.num_classes):
+            c = Counter(true_labels[pred == i].numpy())
+            c = [c[j] for j in range(self.data.num_classes)]
+            conf_mat.append(c)
+        # assign labels using Hungarian Method
+        conf_mat = - np.array(conf_mat)
+        row_ind, col_ind = linear_sum_assignment(conf_mat)
+        total_true = - conf_mat[row_ind, col_ind].sum()
+        return total_true / self.data.num_nodes
+
     def test(self, embed):
+        acc_scores = []
         nmi_scores = []
         ami_scores = []
         ari_scores = []
         true_labels = self.data.labels.cpu()
         for _ in range(10):
             pred = KMeans(n_clusters=self.data.num_classes).fit_predict(embed)
+            acc = self.accuracy(pred)
             nmi = NMI(true_labels, pred, average_method='arithmetic')
             ami = AMI(true_labels, pred, average_method='arithmetic')
             ari = ARI(true_labels, pred)
+            acc_scores.append(acc)
             nmi_scores.append(nmi)
             ami_scores.append(ami)
             ari_scores.append(ari)
+
+        print("ACC", mean(acc_scores), std(acc_scores))
         print("NMI", mean(nmi_scores), std(nmi_scores))
         print("AMI", mean(ami_scores), std(ami_scores))
         print("ARI", mean(ari_scores), std(ari_scores))
