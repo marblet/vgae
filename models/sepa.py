@@ -19,7 +19,10 @@ class SEPA(nn.Module):
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
+        adj_recon_loss = data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
+        feat_recon = output['feat_recon']
+        feat_recon_loss = F.mse_loss(feat_recon, data.features)
+        return adj_recon_loss + feat_recon_loss
 
     def loss_function(self, data, output):
         return self.recon_loss(data, output)
@@ -29,7 +32,7 @@ class SEPA(nn.Module):
         zx = self.mlpenc(data.features)
         z = torch.cat([za, zx], dim=1)
         adj_recon = self.decoder(z)
-        feat_recon = self.mlpdec(zx)
+        feat_recon = torch.sigmoid(self.mlpdec(zx))
         return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'z': z}
 
 
