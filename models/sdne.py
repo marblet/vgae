@@ -33,8 +33,8 @@ class SDNE(nn.Module):
 
     def forward(self, data):
         adjmat = data.adjmat
-        x = F.relu(self.enc1(adjmat))
-        z = F.relu(self.enc2(x))
-        x = F.relu(self.dec1(z))
+        x = torch.sigmoid(self.enc1(adjmat))
+        z = torch.sigmoid(self.enc2(x))
+        x = torch.sigmoid(self.dec1(z))
         recon_adjmat = torch.sigmoid(self.dec2(x))
         return {'z': z, 'adj_recon': recon_adjmat}
