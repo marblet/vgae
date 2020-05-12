@@ -36,8 +36,17 @@ class Trainer(object):
         loss.backward()
         optimizer.step()
 
-    def evaluate(self):
+    def score_function(self, output):
         raise NotImplementedError()
+
+    def evaluate(self):
+        model, data = self.model, self.data
+        model.eval()
+
+        with torch.no_grad():
+            output = model(data)
+
+        return self.score_function(output)
 
     def run(self):
         if torch.cuda.is_available():
@@ -61,13 +70,8 @@ class EmbeddingTrainer(Trainer):
     def __init__(self, model, data, lr, weigh_decay, epochs):
         super(EmbeddingTrainer, self).__init__(model, data, lr, weigh_decay, epochs)
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         error = model.recon_loss(data, output)
         return {'loss': float(loss), 'error': float(error)}
@@ -77,13 +81,8 @@ class LinkPredTrainer(EmbeddingTrainer):
     def __init__(self, model, data, lr, weight_decay, epochs):
         super(LinkPredTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
         test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
@@ -200,19 +199,14 @@ class ClusteringTrainer(Trainer):
         optimizer.step()
         return loss
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         error = self.mse(output['adj_recon'], data.adjmat)
         pred = model.classify(data)
         nmi = NMI(data.labels.cpu(), pred, average_method='arithmetic')
 
-        return loss, error, nmi
+        return {'loss': loss, 'error': error, 'nmi': nmi}
 
     def run(self):
         if torch.cuda.is_available():
