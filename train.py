@@ -146,7 +146,7 @@ class NodeClsTrainer(EmbeddingTrainer):
         return output
 
 
-class SemiNodeClsTrainer(EmbeddingTrainer):
+class SemiNodeClsTrainer(Trainer):
     def __init__(self, model, data, lr, weight_decay, epochs):
         super(SemiNodeClsTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
@@ -161,13 +161,8 @@ class SemiNodeClsTrainer(EmbeddingTrainer):
         loss.backward()
         optimizer.step()
 
-    def evaluate(self):
-        model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
+    def score_function(self, output):
+        data = self.data
         evals = {}
         for key in ['train', 'val', 'test']:
             if key == 'train':
