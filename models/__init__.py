@@ -1,10 +1,12 @@
+from .gcn import *
+from .vgae import *
+
 from .congae import *
 from .gae import *
-from .gcn import *
 from .invae import *
 from .longae import *
 from .resgae import *
 from .sdne import *
-from .sepa import *
-from .vgae import *
+from .sepa import SEPA, MLP
 from .vgaecd import *
+from .vsepa import VSEPA
