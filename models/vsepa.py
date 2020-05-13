@@ -28,7 +28,14 @@ class VSEPA(nn.Module):
         return adj_recon_loss + feat_recon_loss
 
     def loss_function(self, data, output):
-        return self.recon_loss(data, output)
+        recon_loss = self.recon_loss(data, output)
+        mu_a, logvar_a = output['mu_a'], output['logvar_a']
+        mu_x, logvar_x = output['mu_x'], output['logvar_x']
+        kl_a = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
+            1 + 2 * logvar_a - mu_a.pow(2) - logvar_a.exp().pow(2), 1))
+        kl_x = - 1 / (2 * data.num_nodes) * torch.mean(torch.sum(
+            1 + 2 * logvar_x - mu_x.pow(2) - logvar_x.exp().pow(2), 1))
+        return recon_loss + kl_a + kl_x
 
     def forward(self, data):
         mu_a, logvar_a = self.gcenc(data)
@@ -40,7 +47,7 @@ class VSEPA(nn.Module):
         pred = F.softmax(self.predlabel(z), dim=1)
         adj_recon = self.decoder(z)
         feat_recon = torch.sigmoid(self.mlpdec(zx))
-        return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z}
+        return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
 
 class VEncoder(nn.Module):
