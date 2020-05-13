@@ -1,8 +1,10 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 from sklearn.mixture import GaussianMixture
+
 from . import Encoder, Decoder, reparameterize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -64,9 +66,9 @@ class VGAECD(nn.Module):
         h = logvar.exp().pow(2).unsqueeze(1) + (mu.unsqueeze(1) - self.mu).pow(2)
         h = torch.sum(self.logvar + h / torch.exp(self.logvar), dim=2)
         com_loss = 0.5 * torch.sum(gamma * h) \
-            - torch.sum(gamma * torch.log(weights + 1e-9)) \
-            + torch.sum(gamma * torch.log(gamma + 1e-9)) \
-            - 0.5 * torch.sum(1 + logvar)
+                   - torch.sum(gamma * torch.log(weights + 1e-9)) \
+                   + torch.sum(gamma * torch.log(gamma + 1e-9)) \
+                   - 0.5 * torch.sum(1 + logvar)
         com_loss = com_loss / (data.num_nodes * data.num_nodes)
         return recon_loss + com_loss
 

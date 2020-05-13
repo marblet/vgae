@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from . import GCNConv
+
 from utils import get_degree
+from . import GCNConv
 
 
 def laplacian_sharpening(data):

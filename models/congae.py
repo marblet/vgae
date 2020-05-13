@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from . import Encoder, reparameterize, GCNConv
+
+from . import Encoder, reparameterize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -47,7 +48,7 @@ class ConcatDecoder(nn.Module):
         self.fc2.reset_parameters()
 
     def sample_negative_edges(self):
-        idx = torch.randint(0, self.negative_edges.size(1), (self.E, ))
+        idx = torch.randint(0, self.negative_edges.size(1), (self.E,))
         return self.negative_edges[:, idx]
 
     def forward(self, z, data):

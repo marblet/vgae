@@ -1,8 +1,9 @@
+import pickle as pkl
+import sys
+
 import networkx as nx
 import numpy as np
-import pickle as pkl
 import scipy.sparse as sp
-import sys
 import torch
 
 
@@ -179,7 +180,6 @@ def load_sdne_data(dataset_str):
     return adj, edge_list, features, labels, adjmat, G
 
 
-
 def load_npz_data(dataset_str):
     with np.load('data/npz/' + dataset_str + '.npz', allow_pickle=True) as loader:
         loader = dict(loader)
@@ -302,7 +302,7 @@ def adj_list_from_dict(graph):
 
 
 def index_to_mask(index, size):
-    mask = torch.zeros((size, ), dtype=torch.bool)
+    mask = torch.zeros((size,), dtype=torch.bool)
     mask[index] = 1
     return mask
 
