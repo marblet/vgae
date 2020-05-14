@@ -9,7 +9,7 @@ from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_mutual_info_score as AMI
 from sklearn.metrics import adjusted_rand_score as ARI
 from sklearn.metrics import roc_auc_score, average_precision_score
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, SpectralClustering
 from tqdm import tqdm
 from collections import Counter
 
@@ -102,8 +102,9 @@ def linkpred_score(z, pos_edges, neg_edges):
 
 
 class NodeClsTrainer(EmbeddingTrainer):
-    def __init__(self, model, data, lr, weight_decay, epochs):
+    def __init__(self, model, data, lr, weight_decay, epochs, clustering='kmeans'):
         super(NodeClsTrainer, self).__init__(model, data, lr, weight_decay, epochs)
+        self.clustering = clustering
 
     def accuracy(self, pred):
         true_labels = self.data.labels.cpu()
@@ -125,7 +126,10 @@ class NodeClsTrainer(EmbeddingTrainer):
         ari_scores = []
         true_labels = self.data.labels.cpu()
         for _ in range(10):
-            pred = KMeans(n_clusters=self.data.num_classes).fit_predict(embed)
+            if self.clustering == 'kmeans':
+                pred = KMeans(n_clusters=self.data.num_classes).fit_predict(embed)
+            else:
+                pred = SpectralClustering(n_clusters=self.data.num_classes).fit_predict(embed)
             acc = self.accuracy(pred)
             nmi = NMI(true_labels, pred, average_method='arithmetic')
             ami = AMI(true_labels, pred, average_method='arithmetic')
