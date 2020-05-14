@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from . import GCNConv, Decoder
+
+from . import GCNConv
 
 
 class RESGAE(nn.Module):

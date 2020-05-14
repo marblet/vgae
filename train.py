@@ -1,17 +1,17 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.optim import Adam
+from collections import Counter
+
 import numpy as np
+import torch
+import torch.nn.functional as F
 from numpy import mean, std
 from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import normalized_mutual_info_score as NMI
+from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.metrics import adjusted_mutual_info_score as AMI
 from sklearn.metrics import adjusted_rand_score as ARI
+from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import roc_auc_score, average_precision_score
-from sklearn.cluster import KMeans, SpectralClustering
+from torch.optim import Adam
 from tqdm import tqdm
-from collections import Counter
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -36,8 +36,17 @@ class Trainer(object):
         loss.backward()
         optimizer.step()
 
-    def evaluate(self):
+    def score_function(self, output):
         raise NotImplementedError()
+
+    def evaluate(self):
+        model, data = self.model, self.data
+        model.eval()
+
+        with torch.no_grad():
+            output = model(data)
+
+        return self.score_function(output)
 
     def run(self):
         if torch.cuda.is_available():
@@ -61,13 +70,8 @@ class EmbeddingTrainer(Trainer):
     def __init__(self, model, data, lr, weigh_decay, epochs):
         super(EmbeddingTrainer, self).__init__(model, data, lr, weigh_decay, epochs)
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         error = model.recon_loss(data, output)
         return {'loss': float(loss), 'error': float(error)}
@@ -77,13 +81,8 @@ class LinkPredTrainer(EmbeddingTrainer):
     def __init__(self, model, data, lr, weight_decay, epochs):
         super(LinkPredTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         val_roc, val_ap = linkpred_score(output['z'], data.val_edges, data.neg_val_edges)
         test_roc, test_ap = linkpred_score(output['z'], data.test_edges, data.neg_test_edges)
@@ -151,7 +150,7 @@ class NodeClsTrainer(EmbeddingTrainer):
         return output
 
 
-class SemiNodeClsTrainer(EmbeddingTrainer):
+class SemiNodeClsTrainer(Trainer):
     def __init__(self, model, data, lr, weight_decay, epochs):
         super(SemiNodeClsTrainer, self).__init__(model, data, lr, weight_decay, epochs)
 
@@ -166,13 +165,8 @@ class SemiNodeClsTrainer(EmbeddingTrainer):
         loss.backward()
         optimizer.step()
 
-    def evaluate(self):
-        model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
+    def score_function(self, output):
+        data = self.data
         evals = {}
         for key in ['train', 'val', 'test']:
             if key == 'train':
@@ -204,19 +198,14 @@ class ClusteringTrainer(Trainer):
         optimizer.step()
         return loss
 
-    def evaluate(self):
+    def score_function(self, output):
         model, data = self.model, self.data
-        model.eval()
-
-        with torch.no_grad():
-            output = model(data)
-
         loss = model.loss_function(data, output)
         error = self.mse(output['adj_recon'], data.adjmat)
         pred = model.classify(data)
         nmi = NMI(data.labels.cpu(), pred, average_method='arithmetic')
 
-        return loss, error, nmi
+        return {'loss': loss, 'error': error, 'nmi': nmi}
 
     def run(self):
         if torch.cuda.is_available():
