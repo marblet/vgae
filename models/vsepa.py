@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from . import GCNConv, Decoder, reparameterize, MLP
+from . import GCNConv, Decoder, reparameterize, MLP, VMLP
 
 
 class VSEPA(nn.Module):
@@ -69,25 +69,4 @@ class VEncoder(nn.Module):
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, p=self.dropout, training=self.training)
         mu, logvar = self.gc_mu(x, adj), self.gc_logvar(x, adj)
-        return mu, logvar
-
-
-class VMLP(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout):
-        super(VMLP, self).__init__()
-        self.fc1 = nn.Linear(input_dim, nhid)
-        self.fc_mu = nn.Linear(nhid, latent_dim)
-        self.fc_logvar = nn.Linear(nhid, latent_dim)
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        self.fc1.reset_parameters()
-        self.fc_mu.reset_parameters()
-        self.fc_logvar.reset_parameters()
-
-    def forward(self, x):
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        mu, logvar = self.fc_mu(x), self.fc_logvar(x)
         return mu, logvar

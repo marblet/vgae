@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from . import GCNConv, Decoder
+from . import GCNConv, Decoder, MLP
 
 
 class SEPA(nn.Module):
@@ -31,8 +31,8 @@ class SEPA(nn.Module):
         return self.recon_loss(data, output)
 
     def forward(self, data):
-        za = self.gcenc(data)
-        zx = self.mlpenc(data.features)
+        za = F.relu(self.gcenc(data))
+        zx = F.relu(self.mlpenc(data.features))
         z = torch.cat([za, zx], dim=1)
         z = F.dropout(z, p=self.dropout, training=self.training)
         pred = F.softmax(self.predlabel(z), dim=1)
@@ -57,24 +57,5 @@ class GCEncoder(nn.Module):
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = F.relu(self.gc2(x, adj))
-        return x
-
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(input_dim, nhid)
-        self.fc2 = nn.Linear(nhid, latent_dim)
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        self.fc1.reset_parameters()
-        self.fc2.reset_parameters()
-
-    def forward(self, x):
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = F.relu(self.fc2(x))
+        x = self.gc2(x, adj)
         return x
