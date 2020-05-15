@@ -61,11 +61,12 @@ class AEShare(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout):
+    def __init__(self, input_dim, nhid, latent_dim, dropout, act=lambda x: x):
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, nhid)
         self.fc2 = nn.Linear(nhid, latent_dim)
         self.dropout = dropout
+        self.act = act
 
     def reset_parameters(self):
         self.fc1.reset_parameters()
@@ -76,4 +77,4 @@ class MLP(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc2(x)
-        return x
+        return self.act(x)
