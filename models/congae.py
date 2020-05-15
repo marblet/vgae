@@ -41,7 +41,7 @@ class ConcatDecoder(nn.Module):
         self.fc1 = nn.Linear(latent_dim * 2, latent_dim)
         self.fc2 = nn.Linear(latent_dim, 1)
         self.E = data.edge_list.size(1)
-        self.negative_edges = torch.stack(torch.where(data.adjmat == 0))
+        self.negative_edges = torch.stack(torch.where(data.adjmat == 0)).to(device)
         self.dropout = dropout
 
     def reset_parameters(self):
