@@ -36,12 +36,13 @@ class CONVAE(nn.Module):
 
 
 class ConcatDecoder(nn.Module):
-    def __init__(self, data, latent_dim):
+    def __init__(self, data, latent_dim, dropout=0.):
         super(ConcatDecoder, self).__init__()
         self.fc1 = nn.Linear(latent_dim * 2, latent_dim)
         self.fc2 = nn.Linear(latent_dim, 1)
         self.E = data.edge_list.size(1)
         self.negative_edges = torch.stack(torch.where(data.adjmat == 0))
+        self.dropout = dropout
 
     def reset_parameters(self):
         self.fc1.reset_parameters()
@@ -56,8 +57,9 @@ class ConcatDecoder(nn.Module):
         recon_edges = torch.cat([data.edge_list, neg_edges], dim=1)
         source, target = recon_edges
         concat_z = torch.cat([z[source], z[target]], dim=1)
+        concat_z = F.dropout(concat_z, p=self.dropout, training=self.training)
         z = self.fc1(concat_z)
-        z = F.tanh(z)
+        z = F.dropout(F.relu(z), p=self.dropout, training=self.training)
         adj_recon = self.fc2(z)
         adj_recon = torch.sigmoid(adj_recon)
         return adj_recon, recon_edges
