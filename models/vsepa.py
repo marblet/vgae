@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from . import GCNConv, Decoder, reparameterize, MLP, VMLP
+from . import GCNConv, Decoder, reparameterize, MLP, VMLP, ConcatDecoder
 
 
 class VSEPA(nn.Module):
@@ -10,7 +10,7 @@ class VSEPA(nn.Module):
         super(VSEPA, self).__init__()
         self.gcenc = VEncoder(data.num_features, nhid, latent_dim, dropout)
         self.mlpenc = VMLP(data.num_features, nhid, latent_dim, dropout)
-        self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout)
+        self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout, act=torch.sigmoid)
         self.predlabel = nn.Linear(latent_dim * 2, data.num_classes)
         self.decoder = Decoder()
         self.dropout = dropout
@@ -46,8 +46,33 @@ class VSEPA(nn.Module):
         z = F.dropout(z, p=self.dropout, training=self.training)
         pred = F.softmax(self.predlabel(z), dim=1)
         adj_recon = self.decoder(z)
-        feat_recon = torch.sigmoid(self.mlpdec(zx))
+        feat_recon = self.mlpdec(zx)
         return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
+
+
+class VSEPACAT(VSEPA):
+    def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
+        super(VSEPACAT, self).__init__(data, nhid, latent_dim, dropout)
+        self.decoder = ConcatDecoder(data, latent_dim * 2, dropout)
+
+    def recon_loss(self, data, output):
+        adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
+        adj_recon_loss =  F.binary_cross_entropy(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
+        feat_recon = output['feat_recon']
+        feat_recon_loss = F.mse_loss(feat_recon, data.features)
+        return adj_recon_loss + feat_recon_loss
+
+    def forward(self, data):
+        mu_a, logvar_a = self.gcenc(data)
+        mu_x, logvar_x = self.mlpenc(data.features)
+        za = reparameterize(mu_a, logvar_a, self.training)
+        zx = reparameterize(mu_x, logvar_x, self.training)
+        z = torch.cat([za, zx], dim=1)
+        z = F.dropout(z, p=self.dropout, training=self.training)
+        pred = F.softmax(self.predlabel(z), dim=1)
+        adj_recon, recon_edges = self.decoder(z, data)
+        feat_recon = self.mlpdec(zx)
+        return {'adj_recon': adj_recon, 'recon_edges': recon_edges, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
 
 class VEncoder(nn.Module):
