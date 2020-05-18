@@ -4,6 +4,8 @@ import torch.nn.functional as F
 
 from . import GCNConv, Decoder, reparameterize, MLP, VMLP, ConcatDecoder
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 class VSEPA(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
@@ -61,8 +63,8 @@ class VSEPATFN(VSEPA):
         mu_x, logvar_x = self.mlpenc(data.features)
         za = reparameterize(mu_a, logvar_a, self.training)
         zx = reparameterize(mu_x, logvar_x, self.training)
-        za = torch.cat([za, torch.ones(data.num_nodes, 1)], dim=1)
-        zx = torch.cat([zx, torch.ones(data.num_nodes, 1)], dim=1)
+        za = torch.cat([za, torch.ones((data.num_nodes, 1), device=device)], dim=1)
+        zx = torch.cat([zx, torch.ones((data.num_nodes, 1), device=device)], dim=1)
         z_tensor = torch.bmm(za.unsqueeze(2), zx.unsqueeze(1))
         z = torch.flatten(z_tensor, start_dim=1)
         z = F.dropout(z, p=self.dropout, training=self.training)
