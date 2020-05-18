@@ -55,7 +55,7 @@ class VSEPA(nn.Module):
 class VSEPATFN(VSEPA):
     def __init__(self, data, nhid=32, latent_dim=8, dropout=0.):
         super(VSEPATFN, self).__init__(data, nhid, latent_dim, dropout)
-        self.mlpdec = MLP((latent_dim + 1) ** 2, nhid, data.num_features, dropout, act=torch.sigmoid)
+        self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout, act=torch.sigmoid)
         self.decoder = Decoder()
 
     def forward(self, data):
@@ -63,12 +63,12 @@ class VSEPATFN(VSEPA):
         mu_x, logvar_x = self.mlpenc(data.features)
         za = reparameterize(mu_a, logvar_a, self.training)
         zx = reparameterize(mu_x, logvar_x, self.training)
-        za = torch.cat([za, torch.ones((data.num_nodes, 1), device=device)], dim=1)
-        zx = torch.cat([zx, torch.ones((data.num_nodes, 1), device=device)], dim=1)
-        z_tensor = torch.bmm(za.unsqueeze(2), zx.unsqueeze(1))
+        za_ = torch.cat([za, torch.ones((data.num_nodes, 1), device=device)], dim=1)
+        zx_ = torch.cat([zx, torch.ones((data.num_nodes, 1), device=device)], dim=1)
+        z_tensor = torch.bmm(za_.unsqueeze(2), zx_.unsqueeze(1))
         z = torch.flatten(z_tensor, start_dim=1)
         z = F.dropout(z, p=self.dropout, training=self.training)
-        feat_recon = self.mlpdec(z)
+        feat_recon = self.mlpdec(zx)
         adj_recon = self.decoder(z)
         return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'z': z,
                 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
