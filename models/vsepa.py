@@ -8,7 +8,7 @@ from . import GCNConv, Decoder, reparameterize, MLP, VMLP, ConcatDecoder
 class VSEPA(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
         super(VSEPA, self).__init__()
-        self.gcenc = VEncoder(data.num_features, nhid, latent_dim, dropout)
+        self.gcenc = VEncoder(data, nhid, latent_dim, dropout)
         self.mlpenc = VMLP(data.num_features, nhid, latent_dim, dropout)
         self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout, act=torch.sigmoid)
         self.predlabel = nn.Linear(latent_dim * 2, data.num_classes)
@@ -76,9 +76,9 @@ class VSEPACAT(VSEPA):
 
 
 class VEncoder(nn.Module):
-    def __init__(self, nfeat, nhid, latent_dim, dropout, bias=True):
+    def __init__(self, data, nhid, latent_dim, dropout, bias=True):
         super(VEncoder, self).__init__()
-        self.gc1 = GCNConv(nfeat, nhid, bias)
+        self.gc1 = GCNConv(data.num_features, nhid, bias)
         self.gc_mu = GCNConv(nhid, latent_dim, bias)
         self.gc_logvar = GCNConv(nhid, latent_dim, bias)
         self.dropout = dropout

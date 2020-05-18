@@ -8,7 +8,7 @@ from . import GCNConv, Decoder, MLP, ConcatDecoder
 class SEPA(nn.Module):
     def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
         super(SEPA, self).__init__()
-        self.gcenc = GCEncoder(data.num_features, nhid, latent_dim, dropout, act=F.relu)
+        self.gcenc = GCEncoder(data, nhid, latent_dim, dropout, act=F.relu)
         self.mlpenc = MLP(data.num_features, nhid, latent_dim, dropout, act=F.relu)
         self.mlpdec = MLP(latent_dim, nhid, data.num_features, dropout)
         self.predlabel = nn.Linear(latent_dim * 2, data.num_classes)
@@ -48,7 +48,7 @@ class SEPACAT(SEPA):
 
     def recon_loss(self, data, output):
         adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
-        adj_recon_loss =  F.binary_cross_entropy(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
+        adj_recon_loss = F.binary_cross_entropy(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
         feat_recon = output['feat_recon']
         feat_recon_loss = F.mse_loss(feat_recon, data.features)
         return adj_recon_loss + feat_recon_loss
@@ -65,9 +65,9 @@ class SEPACAT(SEPA):
 
 
 class GCEncoder(nn.Module):
-    def __init__(self, input_dim, nhid, latent_dim, dropout, act=lambda x: x):
+    def __init__(self, data, nhid, latent_dim, dropout, act=lambda x: x):
         super(GCEncoder, self).__init__()
-        self.gc1 = GCNConv(input_dim, nhid)
+        self.gc1 = GCNConv(data.num_features, nhid)
         self.gc2 = GCNConv(nhid, latent_dim)
         self.dropout = dropout
         self.act = act
