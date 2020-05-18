@@ -1,13 +1,15 @@
 import torch
 import torch.nn as nn
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 class GINConv(nn.Module):
     def __init__(self, data, in_features, out_features, eps=True):
         super(GINConv, self).__init__()
         indices = data.adjmat.nonzero().t()
         values = torch.ones(indices.size(1))
-        self.ginadj = torch.sparse.FloatTensor(indices, values)
+        self.ginadj = torch.sparse.FloatTensor(indices, values).to(device)
         self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
         if eps:
             self.eps = nn.Parameter(torch.FloatTensor(1))
