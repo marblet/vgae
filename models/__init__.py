@@ -1,3 +1,4 @@
+from .gin import *
 from .gcn import *
 from .vgae import *
 
