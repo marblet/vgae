@@ -50,6 +50,28 @@ class VSEPA(nn.Module):
         return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
 
+class VSEPATFN(VSEPA):
+    def __init__(self, data, nhid=32, latent_dim=8, dropout=0.):
+        super(VSEPATFN, self).__init__(data, nhid, latent_dim, dropout)
+        self.mlpdec = MLP((latent_dim + 1) ** 2, nhid, data.num_features, dropout, act=torch.sigmoid)
+        self.decoder = Decoder()
+
+    def forward(self, data):
+        mu_a, logvar_a = self.gcenc(data)
+        mu_x, logvar_x = self.mlpenc(data.features)
+        za = reparameterize(mu_a, logvar_a, self.training)
+        zx = reparameterize(mu_x, logvar_x, self.training)
+        za = torch.cat([za, torch.ones(data.num_nodes, 1)], dim=1)
+        zx = torch.cat([zx, torch.ones(data.num_nodes, 1)], dim=1)
+        z_tensor = torch.bmm(za.unsqueeze(2), zx.unsqueeze(1))
+        z = torch.flatten(z_tensor, start_dim=1)
+        z = F.dropout(z, p=self.dropout, training=self.training)
+        feat_recon = self.mlpdec(z)
+        adj_recon = self.decoder(z)
+        return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'z': z,
+                'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
+
+
 class VSEPACAT(VSEPA):
     def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
         super(VSEPACAT, self).__init__(data, nhid, latent_dim, dropout)
@@ -72,7 +94,8 @@ class VSEPACAT(VSEPA):
         pred = F.softmax(self.predlabel(z), dim=1)
         adj_recon, recon_edges = self.decoder(z, data)
         feat_recon = self.mlpdec(zx)
-        return {'adj_recon': adj_recon, 'recon_edges': recon_edges, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
+        return {'adj_recon': adj_recon, 'recon_edges': recon_edges, 'feat_recon': feat_recon, 'pred': pred,
+                'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
 
 class VEncoder(nn.Module):
