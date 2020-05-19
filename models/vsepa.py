@@ -105,13 +105,6 @@ class VSEPACATTFN(VSEPACAT):
         super(VSEPACATTFN, self).__init__(data, nhid, latent_dim, dropout)
         self.decoder = ConcatDecoder(data, (latent_dim + 1) ** 2, dropout)
 
-    def recon_loss(self, data, output):
-        adj_recon, recon_edges = output['adj_recon'], output['recon_edges']
-        adj_recon_loss = F.binary_cross_entropy(adj_recon[:, 0], data.adjmat[recon_edges[0], recon_edges[1]])
-        feat_recon = output['feat_recon']
-        feat_recon_loss = F.mse_loss(feat_recon, data.features)
-        return adj_recon_loss + feat_recon_loss
-
     def forward(self, data):
         mu_a, logvar_a = self.gcenc(data)
         mu_x, logvar_x = self.mlpenc(data.features)
