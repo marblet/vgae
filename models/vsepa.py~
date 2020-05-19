@@ -123,7 +123,7 @@ class VSEPACATTFN(VSEPACAT):
         z = torch.flatten(z_tensor, start_dim=1)
         z = F.dropout(z, p=self.dropout, training=self.training)
         feat_recon = self.mlpdec(zx)
-        adj_recon, recon_edges = self.decoder(z, data)
+        adj_recon, recon_edges = self.decoder(z)
         return {'adj_recon': adj_recon, 'recon_edges': recon_edges, 'feat_recon': feat_recon, 'z': z,
                 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
