@@ -110,13 +110,14 @@ class VSEPACATTFN(VSEPACAT):
         mu_x, logvar_x = self.mlpenc(data.features)
         za = reparameterize(mu_a, logvar_a, self.training)
         zx = reparameterize(mu_x, logvar_x, self.training)
+        z = torch.cat([za, zx], dim=1)
         za_ = torch.cat([za, torch.ones((data.num_nodes, 1), device=device)], dim=1)
         zx_ = torch.cat([zx, torch.ones((data.num_nodes, 1), device=device)], dim=1)
         z_tensor = torch.bmm(za_.unsqueeze(2), zx_.unsqueeze(1))
-        z = torch.flatten(z_tensor, start_dim=1)
-        z = F.dropout(z, p=self.dropout, training=self.training)
+        z_flatten = torch.flatten(z_tensor, start_dim=1)
+        z_flatten = F.dropout(z_flatten, p=self.dropout, training=self.training)
         feat_recon = self.mlpdec(zx)
-        adj_recon, recon_edges = self.decoder(z, data)
+        adj_recon, recon_edges = self.decoder(z_flatten, data)
         return {'adj_recon': adj_recon, 'recon_edges': recon_edges, 'feat_recon': feat_recon, 'z': z,
                 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
 
