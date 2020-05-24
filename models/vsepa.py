@@ -63,6 +63,7 @@ class VSEPAGRA(VSEPA):
         self.gra = alpha * torch.matmul(torch.inverse(torch.eye(data.num_nodes) - alpha * torch.matmul(A, torch.diag(Dinv))), A)
         norm = self.gra.sum()
         self.gra = self.gra / norm * (data.num_nodes ** 2)
+        self.gra = self.gra.to(device)
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
