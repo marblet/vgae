@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from . import GCNConv
+from utils import get_degree
 
 
 def reparameterize(mu, logvar, training):
@@ -39,6 +40,22 @@ class VGAE(nn.Module):
         z = reparameterize(mu, logvar, self.training)
         adj_recon = self.decoder(z)
         return {'adj_recon': adj_recon, 'z': z, 'mu': mu, 'logvar': logvar}
+
+
+class VGAEGRA(VGAE):
+    def __init__(self, data, nhid=32, latent_dim=16):
+        super(VGAEGRA, self).__init__(data, nhid, latent_dim)
+        alpha = 0.95
+        A = data.adjmat
+        D = get_degree(data.edge_list)
+        Dinv = 1 / D.float()
+        self.gra = alpha * torch.matmul(torch.inverse(torch.eye(data.num_nodes) - alpha * torch.matmul(A, torch.diag(Dinv))), A)
+        norm = self.gra.sum()
+        self.gra = self.gra / norm * (data.num_nodes ** 2)
+
+    def recon_loss(self, data, output):
+        adj_recon = output['adj_recon']
+        return F.mse_loss(adj_recon, self.gra)
 
 
 class Encoder(nn.Module):
