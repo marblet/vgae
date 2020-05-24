@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from . import GCNConv, Decoder, reparameterize, MLP, VMLP, ConcatDecoder
+from utils import get_degree
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -50,6 +51,25 @@ class VSEPA(nn.Module):
         adj_recon = self.decoder(z)
         feat_recon = self.mlpdec(zx)
         return {'adj_recon': adj_recon, 'feat_recon': feat_recon, 'pred': pred, 'z': z, 'mu_a': mu_a, 'logvar_a': logvar_a, 'mu_x': mu_x, 'logvar_x': logvar_x}
+
+
+class VSEPAGRA(VSEPA):
+    def __init__(self, data, nhid=32, latent_dim=16, dropout=0.):
+        super(VSEPAGRA, self).__init__(data, nhid, latent_dim, dropout)
+        alpha = 0.95
+        A = data.adjmat
+        D = get_degree(data.edge_list)
+        Dinv = 1 / D.float()
+        self.gra = alpha * torch.matmul(torch.inverse(torch.eye(data.num_nodes) - alpha * torch.matmul(A, torch.diag(Dinv))), A)
+        norm = self.gra.sum()
+        self.gra = self.gra / norm * (data.num_nodes ** 2)
+
+    def recon_loss(self, data, output):
+        adj_recon = output['adj_recon']
+        adj_recon_loss = F.mse_loss(adj_recon, self.gra)
+        feat_recon = output['feat_recon']
+        feat_recon_loss = F.mse_loss(feat_recon, data.features)
+        return adj_recon_loss + feat_recon_loss
 
 
 class VSEPATFN(VSEPA):
