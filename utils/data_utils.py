@@ -130,7 +130,6 @@ def load_planetoid_data(dataset_str):
 
     features = torch.cat([allx, tx], dim=0)
     features[test_idx] = features[sorted_test_idx]
-    features = preprocess_features(features)
 
     labels = torch.cat([ally, ty], dim=0).max(dim=1)[1]
     labels[test_idx] = labels[sorted_test_idx]
