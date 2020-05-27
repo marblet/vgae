@@ -85,7 +85,7 @@ class LinkPredData(Data):
         # For Link Prediction Training
         N = self.features.size(0)
         E = self.edge_list.size(1)
-        self.pos_weight = torch.tensor((N * N) / E - 1)
+        self.pos_weight = torch.tensor((N * N - E) / E)
         self.norm = (N * N) / ((N * N - E) * 2)
 
     def to(self, device):

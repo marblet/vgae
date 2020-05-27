@@ -26,7 +26,7 @@ class VGAE(nn.Module):
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.weight_mat)
+        return data.norm * F.binary_cross_entropy_with_logits(adj_recon, data.adjmat, pos_weight=data.pos_weight)
 
     def loss_function(self, data, output):
         recon_loss = self.recon_loss(data, output)
@@ -83,5 +83,5 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
 
     def forward(self, z):
-        adj = torch.sigmoid(torch.mm(z, z.t()))
+        adj = torch.mm(z, z.t())
         return adj

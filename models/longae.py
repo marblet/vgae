@@ -25,8 +25,8 @@ class LoNGAE(nn.Module):
         recon = output['recon_x']
         recon_a = recon[:, :data.num_nodes]
         recon_x = recon[:, data.num_nodes:]
-        recon_a_loss = data.norm * F.binary_cross_entropy(recon_a, data.adjmat, weight=data.weight_mat)
-        recon_x_loss = F.binary_cross_entropy(recon_x, data.features)
+        recon_a_loss = data.norm * F.binary_cross_entropy_with_logits(recon_a, data.adjmat, pos_weight=data.pos_weight)
+        recon_x_loss = F.binary_cross_entropy_with_logits(recon_x, data.features)
         return recon_a_loss + recon_x_loss
 
     def loss_function(self, data, output):
@@ -38,4 +38,4 @@ class LoNGAE(nn.Module):
         z = F.relu(torch.matmul(x, self.W2) + self.b2)
         x = F.relu(torch.matmul(z, self.W2.t()) + self.b3)
         x = torch.matmul(x, self.W1.t()) + self.b4
-        return {'z': z, 'recon_x': torch.sigmoid(x)}
+        return {'z': z, 'recon_x': x}

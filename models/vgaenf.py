@@ -18,7 +18,7 @@ class VGAENF(nn.Module):
 
     def recon_loss(self, data, output):
         adj_recon = output['adj_recon']
-        return data.norm * F.binary_cross_entropy(adj_recon, data.adjmat, weight=data.pos_weight)
+        return data.norm * F.binary_cross_entropy_with_logits(adj_recon, data.adjmat, pos_weight=data.pos_weight)
 
     def loss_function(self, data, output):
         recon_loss = self.recon_loss(data, output)
