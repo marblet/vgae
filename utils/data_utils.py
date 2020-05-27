@@ -34,8 +34,7 @@ class Data(object):
         # For Embedding Training
         N = features.size(0)
         E = edge_list.size(1)
-        pos_weight = torch.tensor((N * N) / E - 1)
-        self.weight_mat = torch.where(adjmat > 0, pos_weight, torch.tensor(1.))
+        self.pos_weight = torch.tensor((N * N) / E - 1)
         self.norm = (N * N) / ((N * N - E) * 2)
 
     def to(self, device):
@@ -44,7 +43,6 @@ class Data(object):
         self.features = self.features.to(device)
         self.labels = self.labels.to(device)
         self.adjmat = self.adjmat.to(device)
-        self.weight_mat = self.weight_mat.to(device)
 
 
 class NodeClsData(Data):
@@ -87,8 +85,7 @@ class LinkPredData(Data):
         # For Link Prediction Training
         N = self.features.size(0)
         E = self.edge_list.size(1)
-        pos_weight = torch.tensor((N * N) / E - 1)
-        self.weight_mat = torch.where(self.adjmat > 0, pos_weight, torch.tensor(1.))
+        self.pos_weight = torch.tensor((N * N) / E - 1)
         self.norm = (N * N) / ((N * N - E) * 2)
 
     def to(self, device):
